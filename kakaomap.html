@@ -14,6 +14,7 @@
 <script>
 var map;
 var markers = {};
+var overlays = {};
 
 kakao.maps.load(function() {
   var container = document.getElementById('map');
@@ -22,29 +23,64 @@ kakao.maps.load(function() {
     level: 5
   };
   map = new kakao.maps.Map(container, options);
-
-  if (window.ReactNativeWebView) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
-  }
+  notifyReady();
 });
 
+function notifyReady() {
+  var msg = JSON.stringify({ type: 'ready' });
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(msg);
+  }
+  setTimeout(notifyReady2, 1000);
+}
+
+function notifyReady2() {
+  var msg = JSON.stringify({ type: 'ready' });
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(msg);
+  }
+}
+
 function updateMarkers(members) {
-  Object.values(markers).forEach(function(m) { m.marker.setMap(null); m.overlay.setMap(null); });
-  markers = {};
+  Object.keys(markers).forEach(function(k) {
+    markers[k].setMap(null);
+    if (overlays[k]) overlays[k].setMap(null);
+  });
+  markers = {}; overlays = {};
+
+  if (!members || members.length === 0) return;
+  var bounds = new kakao.maps.LatLngBounds();
+
   members.forEach(function(member) {
     if (!member.lat || !member.lng) return;
     var pos = new kakao.maps.LatLng(member.lat, member.lng);
     var color = member.color || '#4F46E5';
-    var content = '<div style="background:' + color + ';color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:bold;white-space:nowrap;">' + member.name + '</div>';
-    var overlay = new kakao.maps.CustomOverlay({ position: pos, content: content, yAnchor: 1.5 });
+    var content = '<div style="background:' + color + ';color:white;padding:5px 10px;border-radius:20px;font-size:13px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);">' + member.name + '</div>';
+    var overlay = new kakao.maps.CustomOverlay({
+      position: pos,
+      content: content,
+      yAnchor: 2.2
+    });
     var marker = new kakao.maps.Marker({ position: pos, map: map });
     overlay.setMap(map);
-    markers[member.id] = { marker: marker, overlay: overlay };
+    markers[member.name] = marker;
+    overlays[member.name] = overlay;
+    bounds.extend(pos);
   });
+
+  if (members.length === 1) {
+    map.setCenter(new kakao.maps.LatLng(members[0].lat, members[0].lng));
+    map.setLevel(4);
+  } else {
+    map.setBounds(bounds);
+  }
 }
 
 function moveCenter(lat, lng) {
-  if (map) map.setCenter(new kakao.maps.LatLng(lat, lng));
+  if (map) {
+    map.setCenter(new kakao.maps.LatLng(lat, lng));
+    map.setLevel(3);
+  }
 }
 
 function handleMessage(e) {
