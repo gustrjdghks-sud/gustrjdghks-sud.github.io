@@ -10,38 +10,36 @@
 </head>
 <body>
 <div id="map"></div>
-<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=3f07cc654457fe6807b9709ed0dfe9c9"></script>
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=3f07cc654457fe6807b9709ed0dfe9c9&autoload=false"></script>
 <script>
 var map;
 var markers = {};
 
-function initMap(lat, lng, level) {
+kakao.maps.load(function() {
   var container = document.getElementById('map');
   var options = {
-    center: new kakao.maps.LatLng(lat || 37.5665, lng || 126.9780),
-    level: level || 5
+    center: new kakao.maps.LatLng(37.5665, 126.9780),
+    level: 5
   };
   map = new kakao.maps.Map(container, options);
-}
+
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
+  }
+});
 
 function updateMarkers(members) {
-  // 기존 마커 제거
-  Object.values(markers).forEach(function(m) { m.setMap(null); });
+  Object.values(markers).forEach(function(m) { m.marker.setMap(null); m.overlay.setMap(null); });
   markers = {};
-
   members.forEach(function(member) {
     if (!member.lat || !member.lng) return;
     var pos = new kakao.maps.LatLng(member.lat, member.lng);
     var color = member.color || '#4F46E5';
     var content = '<div style="background:' + color + ';color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:bold;white-space:nowrap;">' + member.name + '</div>';
-    var overlay = new kakao.maps.CustomOverlay({
-      position: pos,
-      content: content,
-      yAnchor: 1.5
-    });
+    var overlay = new kakao.maps.CustomOverlay({ position: pos, content: content, yAnchor: 1.5 });
     var marker = new kakao.maps.Marker({ position: pos, map: map });
     overlay.setMap(map);
-    markers[member.id] = marker;
+    markers[member.id] = { marker: marker, overlay: overlay };
   });
 }
 
@@ -49,27 +47,16 @@ function moveCenter(lat, lng) {
   if (map) map.setCenter(new kakao.maps.LatLng(lat, lng));
 }
 
-// React Native로부터 메시지 수신
-document.addEventListener('message', function(e) {
-  var data = JSON.parse(e.data);
-  if (data.type === 'init') initMap(data.lat, data.lng, data.level);
-  if (data.type === 'updateMarkers') updateMarkers(data.members);
-  if (data.type === 'moveCenter') moveCenter(data.lat, data.lng);
-});
-window.addEventListener('message', function(e) {
-  var data = JSON.parse(e.data);
-  if (data.type === 'init') initMap(data.lat, data.lng, data.level);
-  if (data.type === 'updateMarkers') updateMarkers(data.members);
-  if (data.type === 'moveCenter') moveCenter(data.lat, data.lng);
-});
+function handleMessage(e) {
+  try {
+    var data = JSON.parse(e.data);
+    if (data.type === 'updateMarkers') updateMarkers(data.members);
+    if (data.type === 'moveCenter') moveCenter(data.lat, data.lng);
+  } catch(err) {}
+}
 
-// 로드 완료 알림
-window.onload = function() {
-  if (window.ReactNativeWebView) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
-  }
-  initMap(37.5665, 126.9780, 5);
-};
+document.addEventListener('message', handleMessage);
+window.addEventListener('message', handleMessage);
 </script>
 </body>
 </html>
