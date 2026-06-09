@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { margin: 0; padding: 0; }
+#map { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ca020611829a62b7bf1e381b0bdeda60&autoload=false"></script>
+<script>
+var map;
+
+kakao.maps.load(function() {
+  var container = document.getElementById('map');
+  var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 5 };
+  map = new kakao.maps.Map(container, options);
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
+  }
+});
+
+function drawRoute(points, color) {
+  if (!points || points.length === 0) return;
+  var path = points.map(function(p) { return new kakao.maps.LatLng(p.lat, p.lng); });
+
+  // 경로 선
+  var polyline = new kakao.maps.Polyline({
+    path: path,
+    strokeWeight: 4,
+    strokeColor: color || '#4F46E5',
+    strokeOpacity: 0.8,
+    strokeStyle: 'solid'
+  });
+  polyline.setMap(map);
+
+  // 시작 마커
+  var startMarker = new kakao.maps.Marker({
+    position: path[0],
+    map: map
+  });
+  var startOverlay = new kakao.maps.CustomOverlay({
+    position: path[0],
+    content: '<div style="background:#10B981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;">출발</div>',
+    yAnchor: 2.2
+  });
+  startOverlay.setMap(map);
+
+  // 끝 마커
+  var endMarker = new kakao.maps.Marker({
+    position: path[path.length - 1],
+    map: map
+  });
+  var endOverlay = new kakao.maps.CustomOverlay({
+    position: path[path.length - 1],
+    content: '<div style="background:#EF4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;">현재</div>',
+    yAnchor: 2.2
+  });
+  endOverlay.setMap(map);
+
+  // 지도 범위 맞추기
+  var bounds = new kakao.maps.LatLngBounds();
+  path.forEach(function(p) { bounds.extend(p); });
+  map.setBounds(bounds);
+}
+
+function handleMessage(e) {
+  try {
+    var data = JSON.parse(e.data);
+    if (data.type === 'drawRoute') drawRoute(data.points, data.color);
+  } catch(err) {}
+}
+
+document.addEventListener('message', handleMessage);
+window.addEventListener('message', handleMessage);
+</script>
+</body>
+</html>
